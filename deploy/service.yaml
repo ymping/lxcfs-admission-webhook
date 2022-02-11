@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lxcfs-admission-webhook
+  labels:
+    app: lxcfs-admission-webhook
+spec:
+  ports:
+  - port: 443
+    targetPort: 8443
+  selector:
+    app: lxcfs-admission-webhook

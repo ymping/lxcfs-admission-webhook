@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: lxcfs-ds
+  labels:
+    app: lxcfs-ds
+spec:
+  selector:
+    matchLabels:
+      app: lxcfs-ds
+  template:
+    metadata:
+      labels:
+        app: lxcfs-ds
+      annotations:
+        mutating.lxcfs-admission-webhook.io/enable: 'false'
+    spec:
+      hostPID: true
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+      containers:
+        - name: lxcfs
+          image: ymping/lxcfs:4.0.11-r0
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - nsenter -t 1 -m -- /var/lib/lxc/script/lxcfs-mount.sh --remount
+            preStop:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - nsenter -t 1 -m -- /var/lib/lxc/script/lxcfs-mount.sh --umount
+          resources:
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+            - name: lxcfs
+              mountPath: /var/lib/lxc
+              mountPropagation: Bidirectional
+      volumes:
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: lxcfs
+          hostPath:
+            path: /var/lib/lxc
+            type: DirectoryOrCreate

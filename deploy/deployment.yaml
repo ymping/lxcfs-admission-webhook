@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lxcfs-admission-webhook
+  labels:
+    app: lxcfs-admission-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lxcfs-admission-webhook
+  template:
+    metadata:
+      labels:
+        app: lxcfs-admission-webhook
+      annotations:
+        mutating.lxcfs-admission-webhook.io/enable: 'false'
+    spec:
+      containers:
+        - name: lxcfs-admission-webhook
+          image: ymping/lxcfs-admission-webhook:v1
+          args:
+            - -tlsCertFile=/etc/webhook/certs/tls.crt
+            - -tlsKeyFile=/etc/webhook/certs/tls.key
+            - -alsologtostderr
+            - -v=4
+            - 2>&1
+          livenessProbe:
+            initialDelaySeconds: 10
+            httpGet:
+              port: 8443
+              path: /ping
+              scheme: HTTPS
+          readinessProbe:
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            httpGet:
+              port: 8443
+              path: /ping
+              scheme: HTTPS
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          volumeMounts:
+          - name: webhook-certs
+            mountPath: /etc/webhook/certs
+            readOnly: true
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: lxcfs-admission-webhook
