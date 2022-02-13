@@ -5,7 +5,7 @@ metadata:
   labels:
     app: lxcfs-admission-webhook
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: lxcfs-admission-webhook
@@ -40,8 +40,8 @@ spec:
               scheme: HTTPS
           resources:
             limits:
-              cpu: "500m"
-              memory: "256Mi"
+              cpu: "1"
+              memory: "1Gi"
           volumeMounts:
           - name: webhook-certs
             mountPath: /etc/webhook/certs

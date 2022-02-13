@@ -49,7 +49,7 @@ spec:
                   - nsenter -t 1 -m -- /var/lib/lxc/script/lxcfs-mount.sh --umount
           resources:
             limits:
-              cpu: "100m"
+              cpu: "500m"
               memory: "128Mi"
           volumeMounts:
             - name: cgroup
