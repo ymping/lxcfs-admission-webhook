@@ -32,7 +32,7 @@
   <a href="https://linuxcontainers.org/lxcfs/introduction/">
     <img src="https://linuxcontainers.org/static/img/containers.small.png" alt="LXCFS Logo" width="80" height="80">
   </a>
-  <strong>X</strong>
+  <strong>on</strong>
   <a href="https://kubernetes.io/">
     <img src="https://kubernetes.io/images/favicon.png" alt="K8s Logo" width="80" height="80">
   </a>
