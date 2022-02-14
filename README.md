@@ -19,6 +19,7 @@
 *** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
 *** https://www.markdownguide.org/basic-syntax/#reference-style-links
 -->
+[![Codecov][codecov-shield]][codecov-url]
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
@@ -225,6 +226,8 @@ Project Link: [https://github.com/ymping/lxcfs-admission-webhook](https://github
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[codecov-shield]: https://img.shields.io/codecov/c/github/ymping/lxcfs-admission-webhook?style=for-the-badge
+[codecov-url]: https://app.codecov.io/gh/ymping/lxcfs-admission-webhook/
 [contributors-shield]: https://img.shields.io/github/contributors/ymping/lxcfs-admission-webhook.svg?style=for-the-badge
 [contributors-url]: https://github.com/ymping/lxcfs-admission-webhook/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/ymping/lxcfs-admission-webhook.svg?style=for-the-badge
