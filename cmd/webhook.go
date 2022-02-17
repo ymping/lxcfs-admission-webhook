@@ -257,11 +257,7 @@ func patchConflictCheck(pod *corev1.Pod, volumesTemplate []corev1.Volume, volume
 		}
 	}
 
-	if volumeConflictCheck(pod.Spec.Volumes, volumesTemplate) {
-		return true
-	}
-
-	return false
+	return volumeConflictCheck(pod.Spec.Volumes, volumesTemplate)
 }
 
 // create mutation patch for resoures
