@@ -22,3 +22,6 @@ deploy/tmp*
 
 # Certificate
 deploy/certs
+
+# Build output
+build

@@ -1,11 +1,10 @@
 FROM golang:1.17-alpine3.15 as build
 
-WORKDIR /build
+WORKDIR /src
 
 ADD . .
 
-RUN export GOPROXY=https://goproxy.io,direct &&\
-    go build -o lxcfs-admission-webhook ./cmd/
+RUN apk add --no-cache make && make build
 
 FROM alpine:3.15
 
@@ -13,7 +12,7 @@ LABEL maintainer="ymping <ympiing@gmail.com>"
 
 WORKDIR /lxcfs
 
-COPY --from=build /build/lxcfs-admission-webhook /lxcfs/lxcfs-admission-webhook
+COPY --from=build /src/build/lxcfs-admission-webhook /lxcfs/lxcfs-admission-webhook
 
 EXPOSE 8443
 

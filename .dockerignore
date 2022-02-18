@@ -14,3 +14,6 @@ vendor/*
 
 # GOPATH
 .go/*
+
+# Build output
+build
