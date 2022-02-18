@@ -55,11 +55,12 @@ const (
 	admissionWebhookResponseKind       = "AdmissionReview"
 )
 
+// WebhookServer lxcfs admission webhook server
 type WebhookServer struct {
 	server *http.Server
 }
 
-// WhSvrParameters Webhook Server parameters
+// WhSvrParameters webhook server parameters
 type WhSvrParameters struct {
 	port     int    // webhook server port
 	certFile string // path to the x509 certificate for https
