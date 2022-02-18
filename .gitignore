@@ -19,3 +19,6 @@
 
 # Tmp
 deploy/tmp*
+
+# Certificate
+deploy/certs

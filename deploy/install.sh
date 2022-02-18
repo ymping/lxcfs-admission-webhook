@@ -22,11 +22,13 @@ https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/
 how to generate certificate:
 https://kubernetes.io/docs/tasks/administer-cluster/certificates/#openssl for
 
-usage: ${0} [OPTIONS]
+usage: ${0} --namespace your_ns
+       ${0} --create-cert-only
 
 The following flags are required.
 
-  --namespace     Namespace where webhook service, lxcfs daemonset and secret reside, default: lxcfs
+  --namespace         Namespace where webhook service, lxcfs daemonset and secret reside, default: lxcfs
+  --create-cert-only  Generate a self-signed certificate in current directory
 
 EOF
   exit 1
@@ -54,6 +56,9 @@ args_parse() {
       NAMESPACE="$2"
       shift
       ;;
+    --create-cert-only)
+      CREATE_CERT_ONLY=true
+      ;;
     *)
       usage
       ;;
@@ -67,7 +72,8 @@ args_parse() {
   SERVICE=${INSTALL_NAME}
   SECRET_NAME=${INSTALL_NAME}
 
-  cat <<EOF
+  if [[ ${CREATE_CERT_ONLY} != true ]]; then
+    cat <<EOF
 Create following k8s object in namespace: ${NAMESPACE}:
   webhook service: ${SERVICE}
   webhook secret: ${SECRET_NAME}
@@ -75,6 +81,7 @@ Create following k8s object in namespace: ${NAMESPACE}:
   lxcfs daemonset: lxcfs-ds
   mutating webhook configuration: ${INSTALL_NAME}
 EOF
+  fi
 
 }
 
@@ -128,19 +135,32 @@ EOF
   openssl x509 -req -in "${TEMP_DIR}"/server.csr -CA "${TEMP_DIR}"/ca-cert.pem -CAkey "${TEMP_DIR}"/ca-key.pem \
     -CAcreateserial -days "${DAYS}" -extensions v3_ext -extfile "${TEMP_DIR}"/csr.conf \
     -out "${TEMP_DIR}"/server-cert.pem
+}
 
-  # create the secret with CA cert and server cert/key
-  kubectl create secret generic "${SECRET_NAME}" -n "${NAMESPACE}" \
-    --from-file=tls.key="${TEMP_DIR}"/server-key.pem \
-    --from-file=tls.crt="${TEMP_DIR}"/server-cert.pem \
-    --dry-run=client -o yaml |
-    kubectl -n "${NAMESPACE}" apply -f -
+if_create_cert_only() {
+  if [[ ${CREATE_CERT_ONLY} == true ]]; then
+    local CERT_DIR
+    CERT_DIR=$(pwd)/certs
+    if [[ ! -d ${CERT_DIR} ]]; then
+      create_self_signed_cert
+      mv "${TEMP_DIR}" "${CERT_DIR}"
+      echo "Generate certificate in directory: ${CERT_DIR}"
+    else
+      rmdir "${TEMP_DIR}"
+      echo "Certificate directory: ${CERT_DIR} exist, skip generate cert"
+    fi
+    exit 0
+  fi
 }
 
 main() {
+  args_parse "$@"
+
   TEMP_DIR=$(mktemp -d -p "$PWD")
 
-  args_parse "$@"
+  # just create a cert then exit 0
+  if_create_cert_only
+
   pre_check
 
   # 1 Deploy lxcfs daemonset
@@ -148,6 +168,11 @@ main() {
 
   # 2 Create admission webhook cert
   create_self_signed_cert
+  kubectl create secret generic "${SECRET_NAME}" -n "${NAMESPACE}" \
+    --from-file=tls.key="${TEMP_DIR}"/server-key.pem \
+    --from-file=tls.crt="${TEMP_DIR}"/server-cert.pem \
+    --dry-run=client -o yaml |
+    kubectl -n "${NAMESPACE}" apply -f -
 
   # 3 Deploy admission webhook
   kubectl create -n "${NAMESPACE}" -f deployment.yaml -o yaml --dry-run=client | kubectl -n "${NAMESPACE}" apply -f -
