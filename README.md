@@ -19,6 +19,7 @@
 *** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
 *** https://www.markdownguide.org/basic-syntax/#reference-style-links
 -->
+[![GitHub Workflow Status (event)][github-workflow-status-shield]][github-workflow-status-url]
 [![Go Report Card][go-report-card-shield]][go-report-card-url]
 [![Codecov][codecov-shield]][codecov-url]
 [![Contributors][contributors-shield]][contributors-url]
@@ -227,6 +228,8 @@ Project Link: [https://github.com/ymping/lxcfs-admission-webhook](https://github
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[github-workflow-status-shield]: https://img.shields.io/github/workflow/status/ymping/lxcfs-admission-webhook/Go?event=push&style=for-the-badge
+[github-workflow-status-url]: https://github.com/ymping/lxcfs-admission-webhook/actions/workflows/go.yml
 [go-report-card-shield]: https://goreportcard.com/badge/github.com/ymping/lxcfs-admission-webhook?style=for-the-badge
 [go-report-card-url]: https://goreportcard.com/report/github.com/ymping/lxcfs-admission-webhook
 [codecov-shield]: https://img.shields.io/codecov/c/github/ymping/lxcfs-admission-webhook?style=for-the-badge
