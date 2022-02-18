@@ -19,15 +19,12 @@ jobs:
         go-version: 1.17
 
     - name: Build
-      run: go build -v -o lxcfs-admission-webhook ./cmd/
+      run: make build
 
     - name: Run Unit Test
-      run: |
-        export PROJECT_NAME=github.com/${GITHUB_REPOSITORY}
-        export PKG_LIST=$(go list ${PROJECT_NAME}/...)
-        go test -short -coverprofile coverage.out -covermode=atomic ${PKG_LIST}
+      run: make test-coverage
 
     - name: Upload Coverage Report to CodeCov
       uses: codecov/codecov-action@v2.1.0
       with:
-        file: coverage.out
+        file: build/coverage.out
