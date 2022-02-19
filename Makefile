@@ -1,6 +1,8 @@
 PROJECT_NAME := lxcfs-admission-webhook
-#VERSION := $(shell git describe --tags)
+VERSION := $(shell git describe --tags || echo v0.0)
 COMMIT_ID := $(shell git rev-parse --short HEAD)
+GO_VERSION := $(shell go version)
+BUILD_TIME := $(shell date +"%Y-%m-%d %H:%M:%S")
 
 # Go related variables.
 BASE_DIR := $(shell pwd)
@@ -18,6 +20,7 @@ NEED_GO_PKG := $(foreach t,$(MAKECMDGOALS),$(filter $(t),$(NEED_GO_PKG_CMD)))
 ifneq ($(NEED_GO_PKG),)
 	GO_PKG := $(shell go list $(GO_MOD)/...)
 endif
+LDFLAGS := "-X 'main.Version=$(VERSION)' -X 'main.GoVersion=$(GO_VERSION)' -X 'main.GitCommit=$(COMMIT_ID)' -X 'main.BuildTime=$(BUILD_TIME)'"
 
 # Docker related variables.
 DOCKER_USER := ymping
@@ -44,7 +47,7 @@ test-coverage: ## Run tests with coverage
 	@go test -short -coverprofile=$(GO_COVERAGE) -covermode=atomic $(GO_PKG)
 
 build: dep ## Build the binary file
-	@go build -o $(WEBHOOK_BIN) $(GO_PKG)
+	@go build -ldflags $(LDFLAGS) -o $(WEBHOOK_BIN) $(GO_PKG)
 
 clean: ## Remove previous build
 	@-rm -f $(WEBHOOK_BIN)

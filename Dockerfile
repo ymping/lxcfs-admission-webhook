@@ -4,7 +4,7 @@ WORKDIR /src
 
 ADD . .
 
-RUN apk add --no-cache make && make build
+RUN apk add --no-cache make git && make build
 
 FROM alpine:3.15
 

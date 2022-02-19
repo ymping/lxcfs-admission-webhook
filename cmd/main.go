@@ -13,16 +13,37 @@ import (
 	"github.com/golang/glog"
 )
 
+var (
+	Version   string
+	GoVersion string
+	GitCommit string
+	BuildTime string
+)
+
+func versionInfo() {
+	fmt.Printf("Version:\t%s\n", Version)
+	fmt.Printf("Go version:\t%s\n", GoVersion)
+	fmt.Printf("Git commit:\t%s\n", GitCommit)
+	fmt.Printf("Built:\t\t%s\n", BuildTime)
+}
+
 func main() {
 	var parameters WhSvrParameters
+	var echoVersion bool
 
 	// get command line parameters
 	flag.IntVar(&parameters.port, "port", 8443, "Webhook server port.")
 	flag.StringVar(&parameters.certFile, "tlsCertFile", "/etc/webhook/certs/tls.crt", "File containing the x509 Certificate for HTTPS.")
 	flag.StringVar(&parameters.keyFile, "tlsKeyFile", "/etc/webhook/certs/tls.key", "File containing the x509 private key to --tlsCertFile.")
+	flag.BoolVar(&echoVersion, "version", false, "Show the LXCFS admission webhook version information")
 	flag.Parse()
 
 	defer glog.Flush()
+
+	if echoVersion {
+		versionInfo()
+		os.Exit(0)
+	}
 
 	pair, err := tls.LoadX509KeyPair(parameters.certFile, parameters.keyFile)
 	if err != nil {
