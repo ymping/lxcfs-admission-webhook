@@ -31,7 +31,7 @@ all: help
 dep: ## Get the dependencies
 	@go mod download
 
-lint: ## Lint Golang files
+lint: ## Lint go files
 	@golangci-lint run
 
 vet: ## Run go vet
@@ -64,10 +64,10 @@ build-image-wh: ## Build lxcfs admission webhook docker images
 push-image-wh: build-image-wh ## Push lxcfs admission webhook docker images
 	@docker push $(DOCKER_IMAGE_WH):$(COMMIT_ID)
 
-build-image-lxcfs: ## Build lxcfs docker images, use example: make LXCFS_VERSION=4.0.11-r0 build-image-lxcfs
+build-image-lxcfs: ## Build lxcfs docker images, use example: make LXCFS_VERSION=XXX build-image-lxcfs , see LXCFS_VERSION at https://pkgs.alpinelinux.org/packages?name=lxcfs
 	@cd lxcfs-image; docker build -t $(DOCKER_IMAGE_LXCFS):$(LXCFS_VERSION) --build-arg LXCFS_VERSION=$(LXCFS_VERSION) .
 
-push-image-lxcfs: build-image-lxcfs ## Build lxcfs docker images, use example: make LXCFS_VERSION=4.0.11-r0 push-image-lxcfs
+push-image-lxcfs: build-image-lxcfs ## Push lxcfs docker images, use example: make LXCFS_VERSION=XXX push-image-lxcfs , see LXCFS_VERSION at https://pkgs.alpinelinux.org/packages?name=lxcfs
 	@docker push $(DOCKER_IMAGE_LXCFS):$(LXCFS_VERSION)
 
 help: ## Display this help screen
