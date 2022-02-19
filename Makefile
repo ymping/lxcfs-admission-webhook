@@ -7,9 +7,11 @@ BASE_DIR := $(shell pwd)
 BUILD_DIR := $(BASE_DIR)/build
 WEBHOOK_BIN := $(BUILD_DIR)/$(PROJECT_NAME)
 GO_COVERAGE := $(BUILD_DIR)/coverage.out
-$(shell go env -w GOPROXY=https://goproxy.io,direct)
+# Set go proxy
+ifneq ($(shell wget ipinfo.io -O - -q | grep '"country": "CN"'),)
+	export GOPROXY=https://goproxy.cn.example,direct
+endif
 GO_MOD := $(shell go list -m)
-
 # "go list $(GO_MOD)/..." need time to download dependence, run only necessary
 NEED_GO_PKG_CMD := vet test test-coverage build run-wh
 NEED_GO_PKG := $(foreach t,$(MAKECMDGOALS),$(filter $(t),$(NEED_GO_PKG_CMD)))
