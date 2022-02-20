@@ -41,11 +41,11 @@ vet: ## Run go vet
 	@go vet $(GO_PKG)
 
 test: ## Run unittests
-	@cd deploy; sh ./install.sh --create-cert-only
+	@cd deploy; bash ./install.sh --create-cert-only
 	@go test -short $(GO_PKG)
 
 test-coverage: ## Run tests with coverage
-	@cd deploy; sh ./install.sh --create-cert-only
+	@cd deploy; bash ./install.sh --create-cert-only
 	@go test -short -coverprofile=$(GO_COVERAGE) -covermode=atomic $(GO_PKG)
 
 build: dep ## Build the binary file
@@ -56,7 +56,7 @@ clean: ## Remove previous build
 	@-rm -f $(GO_COVERAGE)
 
 run-wh: build ## Start lxcfs admission webhook
-	@cd deploy; sh ./install.sh --create-cert-only
+	@cd deploy; bash ./install.sh --create-cert-only
 	@$(WEBHOOK_BIN) -tlsCertFile=$(BASE_DIR)/deploy/certs/server-cert.pem \
 					-tlsKeyFile=$(BASE_DIR)/deploy/certs/server-key.pem \
 					-alsologtostderr \
