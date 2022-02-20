@@ -41,9 +41,11 @@ vet: ## Run go vet
 	@go vet $(GO_PKG)
 
 test: ## Run unittests
+	@cd deploy; sh ./install.sh --create-cert-only
 	@go test -short $(GO_PKG)
 
 test-coverage: ## Run tests with coverage
+	@cd deploy; sh ./install.sh --create-cert-only
 	@go test -short -coverprofile=$(GO_COVERAGE) -covermode=atomic $(GO_PKG)
 
 build: dep ## Build the binary file
