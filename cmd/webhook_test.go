@@ -1,9 +1,11 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"gotest.tools/assert"
+	"io/ioutil"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -383,5 +385,30 @@ func TestWebhookServerMutate(t *testing.T) {
 
 		assert.Equal(t, recorder.Code, testCase.httpCode, fmt.Sprintf("handler returned wrong status code: got %v want %v", recorder.Code, testCase.httpCode))
 		assert.Equal(t, strings.Contains(responseJsonPatch, testCase.respBody), true, fmt.Sprintf("handler returned unexpected body: got %v not contain %v", responseJsonPatch, testCase.respBody))
+	}
+}
+
+func TestStartWebhookServer(t *testing.T) {
+	parameters := WhSvrParameters{
+		8443,
+		"../deploy/certs/server-cert.pem",
+		"../deploy/certs/server-key.pem",
+	}
+
+	whsvr := startWebhookServer(&parameters)
+	defer func() {
+		_ = whsvr.server.Close()
+	}()
+
+	exceptRespBody := "pong"
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	resp, err := http.Get("https://localhost:8443/ping")
+	if err != nil {
+		t.Error(err)
+	}
+	respBodyByte, err := ioutil.ReadAll(resp.Body)
+	respBody := string(respBodyByte)
+	if respBody != exceptRespBody {
+		t.Errorf("got unexpected body: got %v ,except %v", respBody, exceptRespBody)
 	}
 }
