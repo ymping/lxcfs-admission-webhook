@@ -125,9 +125,6 @@ func TestWebhookServerMutate(t *testing.T) {
                     "app": "nginx",
                     "pod-template-hash": "6fc77dcb7c"
                 },
-                "annotations": {
-                    "kubernetes.io/psp": "psp-global"
-                },
                 "ownerReferences": [
                     {
                         "apiVersion": "apps/v1",
