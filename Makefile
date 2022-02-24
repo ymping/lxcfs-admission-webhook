@@ -50,7 +50,9 @@ test-coverage: ## Run tests with coverage
 	@go test -short -coverprofile=$(GO_COVERAGE) -covermode=atomic $(GO_PKG)
 
 build: dep ## Build the binary file
-	@go build -ldflags $(LDFLAGS) -o $(WEBHOOK_BIN) $(GO_PKG)
+	echo $(LDFLAGS)
+	go build -ldflags $(LDFLAGS) -o $(WEBHOOK_BIN) $(GO_PKG)
+	$(WEBHOOK_BIN) -version
 
 clean: ## Remove previous build
 	@-rm -f $(WEBHOOK_BIN)
