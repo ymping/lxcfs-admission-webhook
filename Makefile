@@ -50,6 +50,7 @@ test-coverage: ## Run tests with coverage
 	@go test -short -coverprofile=$(GO_COVERAGE) -covermode=atomic $(GO_PKG)
 
 build: dep ## Build the binary file
+	git describe --tags
 	echo $(LDFLAGS)
 	go build -ldflags $(LDFLAGS) -o $(WEBHOOK_BIN) $(GO_PKG)
 	$(WEBHOOK_BIN) -version
