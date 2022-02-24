@@ -2,7 +2,7 @@ PROJECT_NAME := lxcfs-admission-webhook
 VERSION := $(shell git describe --tags)
 COMMIT_ID := $(shell git rev-parse --short HEAD)
 GO_VERSION := $(shell go version)
-BUILD_TIME := $(shell date --iso-8601=seconds)
+BUILD_TIME := $(shell date -Iseconds)
 
 # Go related variables.
 BASE_DIR := $(shell pwd)
