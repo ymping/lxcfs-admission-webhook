@@ -11,7 +11,7 @@ WEBHOOK_BIN := $(BUILD_DIR)/$(PROJECT_NAME)
 GO_COVERAGE := $(BUILD_DIR)/coverage.out
 # Set go proxy
 ifneq ($(shell wget ipinfo.io -O - -q | grep '"country": "CN"'),)
-	export GOPROXY=https://goproxy.cn.example,direct
+	export GOPROXY=https://goproxy.cn,direct
 endif
 GO_MOD := $(shell go list -m)
 # "go list $(GO_MOD)/..." need time to download dependence, run only necessary
