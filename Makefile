@@ -26,6 +26,7 @@ LDFLAGS := "-X 'main.Version=$(VERSION)' -X 'main.GoVersion=$(GO_VERSION)' -X 'm
 DOCKER_USER := ymping
 DOCKER_IMAGE_WH := $(DOCKER_USER)/$(PROJECT_NAME)
 DOCKER_IMAGE_LXCFS := $(DOCKER_USER)/lxcfs
+DOCKER_TAG_LXCFS := $(shell source $(BASE_DIR)/lxcfs-image/.env && echo $${LXCFS_VERSION})
 
 .PHONY: all dep lint vet test test-coverage build clean start-wh build-image-wh push-image-wh build-image-lxcfs push-image-lxcfs
 
@@ -69,11 +70,11 @@ build-image-wh: ## Build lxcfs admission webhook docker images
 push-image-wh: build-image-wh ## Push lxcfs admission webhook docker images
 	@docker push $(DOCKER_IMAGE_WH):$(COMMIT_ID)
 
-build-image-lxcfs: ## Build lxcfs docker images, use example: make LXCFS_VERSION=XXX build-image-lxcfs , see LXCFS_VERSION at https://pkgs.alpinelinux.org/packages?name=lxcfs
-	@cd lxcfs-image; docker build -t $(DOCKER_IMAGE_LXCFS):$(LXCFS_VERSION) --build-arg LXCFS_VERSION=$(LXCFS_VERSION) .
+build-image-lxcfs: ## Build lxcfs docker images
+	@cd lxcfs-image; docker build -t $(DOCKER_IMAGE_LXCFS):$(DOCKER_TAG_LXCFS) --build-arg LXCFS_VERSION=$(DOCKER_TAG_LXCFS) .
 
-push-image-lxcfs: build-image-lxcfs ## Push lxcfs docker images, use example: make LXCFS_VERSION=XXX push-image-lxcfs , see LXCFS_VERSION at https://pkgs.alpinelinux.org/packages?name=lxcfs
-	@docker push $(DOCKER_IMAGE_LXCFS):$(LXCFS_VERSION)
+push-image-lxcfs: build-image-lxcfs ## Push lxcfs docker images
+	@docker push $(DOCKER_IMAGE_LXCFS):$(DOCKER_TAG_LXCFS)
 
 help: ## Display this help screen
 	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
