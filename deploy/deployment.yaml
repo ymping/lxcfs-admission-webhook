@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: lxcfs-admission-webhook
-          image: ymping/lxcfs-admission-webhook:v1
+          image: ymping/lxcfs-admission-webhook:v1.0
           args:
             - -tlsCertFile=/etc/webhook/certs/tls.crt
             - -tlsKeyFile=/etc/webhook/certs/tls.key
