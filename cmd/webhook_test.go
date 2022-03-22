@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/golang/glog"
 	"gotest.tools/assert"
 	"io/ioutil"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -23,63 +24,8 @@ func NewWebhookServer() *WebhookServer {
 	}
 }
 
-func TestWebhookServerPing(t *testing.T) {
-	whsvr := NewWebhookServer()
-
-	req, err := http.NewRequest(http.MethodGet, "/ping", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(whsvr.ping)
-
-	handler.ServeHTTP(rr, req)
-
-	expectedBody := "pong"
-
-	assert.Equal(t, rr.Code, http.StatusOK, fmt.Sprintf("handler returned wrong status code: got %v want %v", rr.Code, http.StatusOK))
-	assert.Equal(t, rr.Body.String(), expectedBody, fmt.Sprintf("handler returned unexpected body: got %v want %v", rr.Body.String(), expectedBody))
-}
-
-func TestWebhookServerServe(t *testing.T) {
-	whsvr := NewWebhookServer()
-
-	testCases := []struct {
-		name     string
-		method   string
-		header   map[string][]string
-		reqBody  string
-		httpCode int
-		respBody string
-	}{
-		{"test empty body", http.MethodPost, make(http.Header), "", http.StatusBadRequest, "empty body\n"},
-		{"test content type", http.MethodPost, http.Header{"Content-Type": {"text/html"}}, "{}", http.StatusUnsupportedMediaType, "invalid Content-Type, expect `application/json`\n"},
-		{"test decode request", http.MethodPost, http.Header{"Content-Type": {"application/json"}}, "{}", http.StatusOK, "Got nil admissionRequest object after deserializer http request body"},
-	}
-
-	for _, tc := range testCases {
-		t.Logf("Test case for: %s", tc.name)
-		req, err := http.NewRequest(tc.method, "/mutate", strings.NewReader(tc.reqBody))
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.Header = tc.header
-
-		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(whsvr.serve)
-
-		handler.ServeHTTP(rr, req)
-
-		assert.Equal(t, rr.Code, tc.httpCode, fmt.Sprintf("handler returned wrong status code: got %v want %v", rr.Code, tc.httpCode))
-		assert.Equal(t, strings.Contains(rr.Body.String(), tc.respBody), true, fmt.Sprintf("handler returned unexpected body: got %v not contain %v", rr.Body.String(), tc.respBody))
-	}
-}
-
-func TestWebhookServerMutate(t *testing.T) {
-	whsvr := NewWebhookServer()
-
-	requestDataExample := []byte(`{
+func GetAdmissionReviewExample() *admissionv1.AdmissionReview {
+	example := []byte(`{
     "kind": "AdmissionReview",
     "apiVersion": "admission.k8s.io/v1",
     "request": {
@@ -274,15 +220,76 @@ func TestWebhookServerMutate(t *testing.T) {
     }
 }`)
 
+	admissionReviewExample := admissionv1.AdmissionReview{}
+	if _, _, err := deserializer.Decode(example, nil, &admissionReviewExample); err != nil {
+		glog.Errorf("Can't decode request body: %v", err)
+	}
+
+	return &admissionReviewExample
+}
+
+func TestWebhookServerPing(t *testing.T) {
+	whsvr := NewWebhookServer()
+
+	req, err := http.NewRequest(http.MethodGet, "/ping", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(whsvr.ping)
+
+	handler.ServeHTTP(rr, req)
+
+	expectedBody := "pong"
+
+	assert.Equal(t, rr.Code, http.StatusOK, fmt.Sprintf("handler returned wrong status code: got %v want %v", rr.Code, http.StatusOK))
+	assert.Equal(t, rr.Body.String(), expectedBody, fmt.Sprintf("handler returned unexpected body: got %v want %v", rr.Body.String(), expectedBody))
+}
+
+func TestWebhookServerServe(t *testing.T) {
+	whsvr := NewWebhookServer()
+
+	testCases := []struct {
+		name     string
+		method   string
+		header   map[string][]string
+		reqBody  string
+		httpCode int
+		respBody string
+	}{
+		{"test empty body", http.MethodPost, make(http.Header), "", http.StatusBadRequest, "empty body\n"},
+		{"test content type", http.MethodPost, http.Header{"Content-Type": {"text/html"}}, "{}", http.StatusUnsupportedMediaType, "invalid Content-Type, expect `application/json`\n"},
+		{"test decode request", http.MethodPost, http.Header{"Content-Type": {"application/json"}}, "{}", http.StatusOK, "Got nil admissionRequest object after deserializer http request body"},
+	}
+
+	for _, tc := range testCases {
+		t.Logf("Test case for: %s", tc.name)
+		req, err := http.NewRequest(tc.method, "/mutate", strings.NewReader(tc.reqBody))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header = tc.header
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(whsvr.serve)
+
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, rr.Code, tc.httpCode, fmt.Sprintf("handler returned wrong status code: got %v want %v", rr.Code, tc.httpCode))
+		assert.Equal(t, strings.Contains(rr.Body.String(), tc.respBody), true, fmt.Sprintf("handler returned unexpected body: got %v not contain %v", rr.Body.String(), tc.respBody))
+	}
+}
+
+func TestWebhookServerMutate(t *testing.T) {
+	whsvr := NewWebhookServer()
+
 	exceptSkipJsonPatch := "{\"op\":\"add\",\"path\":\"/metadata/annotations\",\"value\":{\"mutating.lxcfs-admission-webhook.io/status\":\"skip\"}}"
 	exceptReplaceSkipJsonPatch := "{\"op\":\"replace\",\"path\":\"/metadata/annotations/mutating.lxcfs-admission-webhook.io~1status\",\"value\":\"skip\"}"
 	exceptMutatedJsonPatch := "{\"op\":\"add\",\"path\":\"/metadata/annotations\",\"value\":{\"mutating.lxcfs-admission-webhook.io/status\":\"mutated\"}}"
 	exceptConflictJsonPatch := "{\"op\":\"add\",\"path\":\"/metadata/annotations\",\"value\":{\"mutating.lxcfs-admission-webhook.io/status\":\"conflict\"}}"
 
-	admissionReviewExample := admissionv1.AdmissionReview{}
-	if _, _, err := deserializer.Decode(requestDataExample, nil, &admissionReviewExample); err != nil {
-		t.Errorf("Can't decode request body: %v", err)
-	}
+	admissionReviewExample := GetAdmissionReviewExample()
 	admissionReviewExampleRequest, _ := json.Marshal(admissionReviewExample)
 
 	admissionReviewWithNamespaceSystem := admissionv1.AdmissionReview{}
@@ -408,4 +415,78 @@ func TestStartWebhookServer(t *testing.T) {
 	if respBody != exceptRespBody {
 		t.Errorf("got unexpected body: got %v ,except %v", respBody, exceptRespBody)
 	}
+}
+
+func TestMutationRequired(t *testing.T) {
+	admissionReviewExample := GetAdmissionReviewExample()
+
+	NotRequiredCase1 := admissionReviewExample.DeepCopy()
+	NotRequiredCase1.Request.Namespace = metav1.NamespaceSystem
+
+	NotRequiredCase2 := admissionReviewExample.DeepCopy()
+	NotRequiredCase2.Request.Namespace = metav1.NamespacePublic
+
+	NotRequiredCase3 := admissionReviewExample.DeepCopy()
+	var podWithDenyAnnotation corev1.Pod
+	if err := json.Unmarshal(NotRequiredCase3.Request.Object.Raw, &podWithDenyAnnotation); err != nil {
+		t.Error(err)
+	}
+	podWithDenyAnnotation.SetAnnotations(map[string]string{
+		admissionWebhookAnnotationEnableKey: "No",
+		admissionWebhookAnnotationStatusKey: "test",
+	})
+	podWithDenyAnnotationRaw, _ := json.Marshal(podWithDenyAnnotation)
+	NotRequiredCase3.Request.Object.Raw = podWithDenyAnnotationRaw
+
+	NotRequiredCase4 := admissionReviewExample.DeepCopy()
+	var podWithMutatedAnnotation corev1.Pod
+	if err := json.Unmarshal(NotRequiredCase4.Request.Object.Raw, &podWithMutatedAnnotation); err != nil {
+		t.Error(err)
+	}
+	podWithMutatedAnnotation.SetAnnotations(map[string]string{
+		admissionWebhookAnnotationStatusKey: admissionWebhookSuccessFlag,
+	})
+	podWithMutatedAnnotationRaw, _ := json.Marshal(podWithMutatedAnnotation)
+	NotRequiredCase4.Request.Object.Raw = podWithMutatedAnnotationRaw
+
+	RequiredCase5 := admissionReviewExample.DeepCopy()
+	RequiredCase5.Request.Kind = validMutatingKindList[0]
+
+	NotRequiredCase5 := admissionReviewExample.DeepCopy()
+	NotRequiredCase5.Request.Kind = metav1.GroupVersionKind{
+		Group:   "autoscaling",
+		Version: "v1",
+		Kind:    "Scale",
+	}
+
+	RequiredCase6 := admissionReviewExample.DeepCopy()
+	RequiredCase6.Request.Operation = validMutatingOperationList[0]
+
+	NotRequiredCase6 := admissionReviewExample.DeepCopy()
+	NotRequiredCase6.Request.Operation = admissionv1.Update
+
+	cases := []struct {
+		admissionReview *admissionv1.AdmissionReview
+		required        bool
+	}{
+		{NotRequiredCase1, false},
+		{NotRequiredCase2, false},
+		{NotRequiredCase3, false},
+		{NotRequiredCase4, false},
+		{NotRequiredCase5, false},
+		{RequiredCase5, true},
+		{NotRequiredCase6, false},
+		{RequiredCase6, true},
+	}
+
+	for _, testCase := range cases {
+		assert.Equal(t, mutationRequired(ignoredNamespaces, validMutatingKindList, validMutatingOperationList, testCase.admissionReview), testCase.required)
+	}
+}
+
+func TestEscapeJSONPointerValue(t *testing.T) {
+	origin := "{\"foo/bar~\": \"baz\"}"
+	except := "{\"foo~1bar~0\": \"baz\"}"
+	escape := escapeJSONPointerValue(origin)
+	assert.Equal(t, escape, except, fmt.Sprintf("TestEscapeJSONPointerValue: got %v want %v", escape, except))
 }
