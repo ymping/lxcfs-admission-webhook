@@ -285,54 +285,19 @@ func TestWebhookServerMutate(t *testing.T) {
 	whsvr := NewWebhookServer()
 
 	exceptSkipJsonPatch := "{\"op\":\"add\",\"path\":\"/metadata/annotations\",\"value\":{\"mutating.lxcfs-admission-webhook.io/status\":\"skip\"}}"
-	exceptReplaceSkipJsonPatch := "{\"op\":\"replace\",\"path\":\"/metadata/annotations/mutating.lxcfs-admission-webhook.io~1status\",\"value\":\"skip\"}"
 	exceptMutatedJsonPatch := "{\"op\":\"add\",\"path\":\"/metadata/annotations\",\"value\":{\"mutating.lxcfs-admission-webhook.io/status\":\"mutated\"}}"
 	exceptConflictJsonPatch := "{\"op\":\"add\",\"path\":\"/metadata/annotations\",\"value\":{\"mutating.lxcfs-admission-webhook.io/status\":\"conflict\"}}"
+	exceptErrorMsg := "json: cannot unmarshal array into Go value of type v1.Pod"
 
 	admissionReviewExample := GetAdmissionReviewExample()
-	admissionReviewExampleRequest, _ := json.Marshal(admissionReviewExample)
+
+	admissionReviewWithError := admissionv1.AdmissionReview{}
+	admissionReviewExample.DeepCopyInto(&admissionReviewWithError)
+	admissionReviewWithError.Request.Object.Raw = []byte("[]")
 
 	admissionReviewWithNamespaceSystem := admissionv1.AdmissionReview{}
 	admissionReviewExample.DeepCopyInto(&admissionReviewWithNamespaceSystem)
 	admissionReviewWithNamespaceSystem.Request.Namespace = metav1.NamespaceSystem
-	admissionReviewWithNamespaceSystemRequest, _ := json.Marshal(admissionReviewWithNamespaceSystem)
-
-	admissionReviewWithScaleKind := admissionv1.AdmissionReview{}
-	admissionReviewExample.DeepCopyInto(&admissionReviewWithScaleKind)
-	admissionReviewWithScaleKind.Request.Kind = metav1.GroupVersionKind{
-		Group:   "autoscaling",
-		Version: "v1",
-		Kind:    "Scale",
-	}
-	admissionReviewWithScaleKindRequest, _ := json.Marshal(admissionReviewWithScaleKind)
-
-	admissionReviewWithDenyAnnotation := admissionv1.AdmissionReview{}
-	admissionReviewExample.DeepCopyInto(&admissionReviewWithDenyAnnotation)
-	var podWithDenyAnnotation corev1.Pod
-	if err := json.Unmarshal(admissionReviewWithDenyAnnotation.Request.Object.Raw, &podWithDenyAnnotation); err != nil {
-		t.Error(err)
-	}
-	podWithDenyAnnotation.SetAnnotations(map[string]string{
-		admissionWebhookAnnotationEnableKey: "No",
-		admissionWebhookAnnotationStatusKey: "test",
-	})
-	podWithDenyAnnotationRaw, _ := json.Marshal(podWithDenyAnnotation)
-	admissionReviewWithDenyAnnotation.Request.Object.Raw = podWithDenyAnnotationRaw
-	admissionReviewWithDenyAnnotationRequest, _ := json.Marshal(admissionReviewWithDenyAnnotation)
-
-	admissionReviewWithVolumeMountConflict := admissionv1.AdmissionReview{}
-	admissionReviewExample.DeepCopyInto(&admissionReviewWithVolumeMountConflict)
-	var podWithVolumeMountConflict corev1.Pod
-	if err := json.Unmarshal(admissionReviewWithVolumeMountConflict.Request.Object.Raw, &podWithVolumeMountConflict); err != nil {
-		t.Error(err)
-	}
-	volumeMounts := volumeMountsTemplate[0:1]
-	for i, container := range podWithVolumeMountConflict.Spec.Containers {
-		podWithVolumeMountConflict.Spec.Containers[i].VolumeMounts = append(container.VolumeMounts, volumeMounts...)
-	}
-	podWithVolumeMountConflictRaw, _ := json.Marshal(podWithVolumeMountConflict)
-	admissionReviewWithVolumeMountConflict.Request.Object.Raw = podWithVolumeMountConflictRaw
-	admissionReviewWithVolumeMountConflictRequest, _ := json.Marshal(admissionReviewWithVolumeMountConflict)
 
 	admissionReviewWithVolumeConflict := admissionv1.AdmissionReview{}
 	admissionReviewExample.DeepCopyInto(&admissionReviewWithVolumeConflict)
@@ -344,51 +309,29 @@ func TestWebhookServerMutate(t *testing.T) {
 	podWithVolumeConflict.Spec.Volumes = append(podWithVolumeConflict.Spec.Volumes, volume...)
 	podWithVolumeConflictRaw, _ := json.Marshal(podWithVolumeConflict)
 	admissionReviewWithVolumeConflict.Request.Object.Raw = podWithVolumeConflictRaw
-	admissionReviewWithVolumeConflictRequest, _ := json.Marshal(admissionReviewWithVolumeConflict)
 
-	defaultReqHeader := http.Header{"Content-Type": {"application/json"}}
 	testCases := []struct {
-		name     string
-		method   string
-		header   map[string][]string
-		reqBody  string
-		httpCode int
-		respBody string
+		name   string
+		ar     *admissionv1.AdmissionReview
+		except string
 	}{
-		{"test with example data", http.MethodPost, defaultReqHeader, string(admissionReviewExampleRequest), http.StatusOK, exceptMutatedJsonPatch},
-		{"test with kube-system namespace", http.MethodPost, defaultReqHeader, string(admissionReviewWithNamespaceSystemRequest), http.StatusOK, exceptSkipJsonPatch},
-		{"test with scale kind", http.MethodPost, defaultReqHeader, string(admissionReviewWithScaleKindRequest), http.StatusOK, exceptSkipJsonPatch},
-		{"test with deny annotation", http.MethodPost, defaultReqHeader, string(admissionReviewWithDenyAnnotationRequest), http.StatusOK, exceptReplaceSkipJsonPatch},
-		{"test with volume mount conflict", http.MethodPost, defaultReqHeader, string(admissionReviewWithVolumeMountConflictRequest), http.StatusOK, exceptConflictJsonPatch},
-		{"test with volume conflict", http.MethodPost, defaultReqHeader, string(admissionReviewWithVolumeConflictRequest), http.StatusOK, exceptConflictJsonPatch},
+		{"test with example data", admissionReviewExample, exceptMutatedJsonPatch},
+		{"test with kube-system namespace", &admissionReviewWithNamespaceSystem, exceptSkipJsonPatch},
+		{"test with volume conflict", &admissionReviewWithVolumeConflict, exceptConflictJsonPatch},
+		{"test with error admission review", &admissionReviewWithError, exceptErrorMsg},
 	}
 
 	for _, testCase := range testCases {
 		t.Logf("Test case for: %s", testCase.name)
-		req, err := http.NewRequest(testCase.method, "/mutate", strings.NewReader(testCase.reqBody))
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.Header = testCase.header
 
-		recorder := httptest.NewRecorder()
-		handler := http.HandlerFunc(whsvr.serve)
-
-		handler.ServeHTTP(recorder, req)
-
-		responseAdmissionReview := admissionv1.AdmissionReview{}
-		responseJsonPatch := ""
-		if _, _, err := deserializer.Decode(recorder.Body.Bytes(), nil, &responseAdmissionReview); err != nil {
-			t.Errorf("Can't decode response body: %v", err)
+		admissionResponse := whsvr.mutate(testCase.ar)
+		if admissionResponse.PatchType != nil {
+			patch := string(admissionResponse.Patch)
+			assert.Equal(t, strings.Contains(patch, testCase.except), true)
+		} else {
+			assert.Equal(t, admissionResponse.Result.Message, testCase.except)
 		}
 
-		patchTypeJSONPatch := admissionv1.PatchTypeJSONPatch
-		if *responseAdmissionReview.Response.PatchType == patchTypeJSONPatch {
-			responseJsonPatch = string(responseAdmissionReview.Response.Patch)
-		}
-
-		assert.Equal(t, recorder.Code, testCase.httpCode, fmt.Sprintf("handler returned wrong status code: got %v want %v", recorder.Code, testCase.httpCode))
-		assert.Equal(t, strings.Contains(responseJsonPatch, testCase.respBody), true, fmt.Sprintf("handler returned unexpected body: got %v not contain %v", responseJsonPatch, testCase.respBody))
 	}
 }
 
@@ -481,6 +424,183 @@ func TestMutationRequired(t *testing.T) {
 
 	for _, testCase := range cases {
 		assert.Equal(t, mutationRequired(ignoredNamespaces, validMutatingKindList, validMutatingOperationList, testCase.admissionReview), testCase.required)
+	}
+}
+
+func TestVolumeMountConflictCheck(t *testing.T) {
+	targetVolumeMount := volumeMountsTemplate
+
+	conflictCase := volumeMountsTemplate
+
+	notConflictCase := []corev1.VolumeMount{
+		{
+			Name:      "NotExistName",
+			MountPath: "/NotExistMountPath",
+		},
+	}
+
+	cases := []struct {
+		volumeMount []corev1.VolumeMount
+		except      bool
+	}{
+		{conflictCase, true},
+		{notConflictCase, false},
+	}
+
+	for _, testCase := range cases {
+		assert.Equal(t, volumeMountConflictCheck(targetVolumeMount, testCase.volumeMount), testCase.except)
+	}
+}
+
+func TestVolumeConflictCheck(t *testing.T) {
+	targetVolume := volumesTemplate
+
+	conflictCase := volumesTemplate
+
+	notConflictCase := []corev1.Volume{
+		{
+			Name: "NotExistName",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/var/lib/lxc/",
+					Type: func() *corev1.HostPathType {
+						pt := corev1.HostPathDirectoryOrCreate
+						return &pt
+					}(),
+				},
+			}},
+	}
+
+	cases := []struct {
+		volume []corev1.Volume
+		except bool
+	}{
+		{conflictCase, true},
+		{notConflictCase, false},
+	}
+
+	for _, testCase := range cases {
+		assert.Equal(t, volumeConflictCheck(targetVolume, testCase.volume), testCase.except)
+	}
+}
+
+func TestPatchConflictCheck(t *testing.T) {
+	ar := GetAdmissionReviewExample()
+	var pod corev1.Pod
+	if err := json.Unmarshal(ar.Request.Object.Raw, &pod); err != nil {
+		t.Error(err)
+	}
+
+	pod1 := pod.DeepCopy()
+	pod1.Spec.Volumes = volumesTemplate
+	pod2 := pod.DeepCopy()
+	pod2.Spec.Containers[0].VolumeMounts = volumeMountsTemplate
+
+	testCases := []struct {
+		pod      *corev1.Pod
+		conflict bool
+	}{
+		{&pod, false},
+		{pod1, true},
+		{pod2, true},
+	}
+
+	for _, testCase := range testCases {
+		assert.Equal(t, patchConflictCheck(testCase.pod, volumesTemplate, volumeMountsTemplate), testCase.conflict)
+	}
+}
+
+func TestCreatePatch(t *testing.T) {
+	ar := GetAdmissionReviewExample()
+	var pod corev1.Pod
+	if err := json.Unmarshal(ar.Request.Object.Raw, &pod); err != nil {
+		t.Error(err)
+	}
+
+	patch, err := createPatch(&pod, volumesTemplate, volumeMountsTemplate, make(map[string]string))
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, strings.Contains(string(patch), "\"op\":\"add\""), true)
+}
+
+func TestPatchVolumeMount(t *testing.T) {
+	targetIndex := 1
+	addedVolumeMount := volumeMountsTemplate
+
+	var emptyTarget []corev1.VolumeMount
+	notEmptyTarget := addedVolumeMount
+
+	exceptEmptyTargetPatchPart := fmt.Sprintf("/spec/containers/%d/volumeMounts", targetIndex)
+
+	exceptNotEmptyTargetPatchPart := fmt.Sprintf("/spec/containers/%d/volumeMounts/-", targetIndex)
+
+	testCases := []struct {
+		target          []corev1.VolumeMount
+		added           []corev1.VolumeMount
+		exceptPatchPart string
+	}{
+		{emptyTarget, addedVolumeMount, exceptEmptyTargetPatchPart},
+		{notEmptyTarget, addedVolumeMount, exceptNotEmptyTargetPatchPart},
+	}
+
+	for _, testCase := range testCases {
+		patch := patchVolumeMount(testCase.target, testCase.added, targetIndex)
+		patchByte, _ := json.Marshal(patch)
+		assert.Equal(t, strings.Contains(string(patchByte), testCase.exceptPatchPart), true)
+	}
+}
+
+func TestPatchVolume(t *testing.T) {
+	addedVolume := volumesTemplate
+
+	var emptyTarget []corev1.Volume
+	notEmptyTarget := addedVolume
+
+	exceptEmptyTargetPatchPart := "/spec/volumes"
+
+	exceptNotEmptyTargetPatchPart := "/spec/volumes/-"
+
+	testCases := []struct {
+		target          []corev1.Volume
+		added           []corev1.Volume
+		exceptPatchPart string
+	}{
+		{emptyTarget, addedVolume, exceptEmptyTargetPatchPart},
+		{notEmptyTarget, addedVolume, exceptNotEmptyTargetPatchPart},
+	}
+
+	for _, testCase := range testCases {
+		patch := patchVolume(testCase.target, testCase.added)
+		patchByte, _ := json.Marshal(patch)
+		assert.Equal(t, strings.Contains(string(patchByte), testCase.exceptPatchPart), true)
+	}
+}
+
+func TestPatchAnnotation(t *testing.T) {
+	var emptyTarget map[string]string
+	notEmptyTarget := map[string]string{
+		"foo": "bar",
+	}
+	added := notEmptyTarget
+
+	exceptEmptyTargetPatchPart := "add"
+	exceptNotEmptyTargetPatchPart := "replace"
+
+	testCases := []struct {
+		target          map[string]string
+		added           map[string]string
+		exceptPatchPart string
+	}{
+		{emptyTarget, added, exceptEmptyTargetPatchPart},
+		{notEmptyTarget, added, exceptNotEmptyTargetPatchPart},
+	}
+
+	for _, testCase := range testCases {
+		patch := patchAnnotation(testCase.target, testCase.added)
+		patchByte, _ := json.Marshal(patch)
+		assert.Equal(t, strings.Contains(string(patchByte), testCase.exceptPatchPart), true)
 	}
 }
 
