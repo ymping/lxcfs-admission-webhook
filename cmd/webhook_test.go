@@ -260,6 +260,7 @@ func TestWebhookServerServe(t *testing.T) {
 	}{
 		{"test empty body", http.MethodPost, make(http.Header), "", http.StatusBadRequest, "empty body\n"},
 		{"test content type", http.MethodPost, http.Header{"Content-Type": {"text/html"}}, "{}", http.StatusUnsupportedMediaType, "invalid Content-Type, expect `application/json`\n"},
+		{"test decode body", http.MethodPost, http.Header{"Content-Type": {"application/json"}}, "{foo}", http.StatusOK, "couldn't get version/kind"},
 		{"test decode request", http.MethodPost, http.Header{"Content-Type": {"application/json"}}, "{}", http.StatusOK, "Got nil admissionRequest object after deserializer http request body"},
 	}
 
