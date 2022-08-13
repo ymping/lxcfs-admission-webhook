@@ -31,7 +31,6 @@ The following flags are required.
   --create-cert-only  Generate a self-signed certificate in current directory
 
 EOF
-  exit 1
 }
 
 pre_check() {
@@ -132,6 +131,7 @@ main() {
   # just create a cert then exit 0
   if [[ ${CREATE_CERT_ONLY} == true ]]; then
     CERT_DIR="${PWD}"/certs
+    mkdir -p "$CERT_DIR"
     create_self_signed_cert
     exit 0
   fi

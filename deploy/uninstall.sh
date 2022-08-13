@@ -19,7 +19,6 @@ The following flags are required.
   --namespace     Namespace where webhook service, lxcfs daemonset and secret reside, default: lxcfs
 
 EOF
-  exit 1
 }
 
 pre_check() {
