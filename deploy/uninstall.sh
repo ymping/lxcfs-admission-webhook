@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -eo pipefail
 
 usage() {
   cat <<EOF
@@ -46,6 +46,7 @@ args_parse() {
       ;;
     *)
       usage
+      exit 0
       ;;
     esac
     shift
@@ -54,16 +55,6 @@ args_parse() {
   NAMESPACE=${NAMESPACE:-"lxcfs"}
 
   INSTALL_NAME=${INSTALL_NAME:-"lxcfs-admission-webhook"}
-
-  cat <<EOF
-Delete following k8s object in namespace: ${NAMESPACE}:
-  webhook service: ${INSTALL_NAME}
-  webhook secret: ${INSTALL_NAME}
-  webhook deployment: ${INSTALL_NAME}
-  lxcfs daemonset: lxcfs-ds
-  mutating webhook configuration: ${INSTALL_NAME}
-EOF
-
 }
 
 uninstall() {
@@ -77,6 +68,16 @@ uninstall() {
 main() {
   args_parse "$@"
   pre_check
+
+  cat <<EOF
+Delete following k8s object in namespace: ${NAMESPACE}:
+  webhook service: ${INSTALL_NAME}
+  webhook secret: ${INSTALL_NAME}
+  webhook deployment: ${INSTALL_NAME}
+  lxcfs daemonset: lxcfs-ds
+  mutating webhook configuration: ${INSTALL_NAME}
+EOF
+
   uninstall
 }
 

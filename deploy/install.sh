@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -eo pipefail
 
 usage() {
   cat <<EOF
@@ -61,6 +61,7 @@ args_parse() {
       ;;
     *)
       usage
+      exit 0
       ;;
     esac
     shift
@@ -71,35 +72,23 @@ args_parse() {
   local INSTALL_NAME=${INSTALL_NAME:-"lxcfs-admission-webhook"}
   SERVICE=${INSTALL_NAME}
   SECRET_NAME=${INSTALL_NAME}
-
-  if [[ ${CREATE_CERT_ONLY} != true ]]; then
-    cat <<EOF
-Create following k8s object in namespace: ${NAMESPACE}:
-  webhook service: ${SERVICE}
-  webhook secret: ${SECRET_NAME}
-  webhook deployment: ${INSTALL_NAME}
-  lxcfs daemonset: lxcfs-ds
-  mutating webhook configuration: ${INSTALL_NAME}
-EOF
-  fi
-
 }
 
 create_self_signed_cert() {
   # gen certs doc: https://kubernetes.io/docs/tasks/administer-cluster/certificates/#openssl
-  echo "creating certs in temp directory: ${TEMP_DIR} "
+  echo "Creating certs in directory: ${CERT_DIR} "
 
   local BITS=${BITS:-"2048"}
   local DAYS=${DAYS:-"10950"} # 30 years
-  cat <<EOF >"${TEMP_DIR}"/csr.conf
-[req]
+  cat <<EOF >"${CERT_DIR}"/csr.conf
+[ req ]
 default_bits = ${BITS}
 prompt = no
 default_md = sha256
 req_extensions = req_ext
 distinguished_name = dn
 
-[dn]
+[ dn ]
 C = CN
 ST = Sichuan
 L = Chengdu
@@ -127,41 +116,38 @@ subjectAltName = @alt_names
 EOF
 
   # gen ca cert
-  openssl genrsa -out "${TEMP_DIR}"/ca-key.pem "${BITS}"
-  openssl req -x509 -new -nodes -days "${DAYS}" -key "${TEMP_DIR}"/ca-key.pem -subj "/CN=Kubernetes Admin" -out "${TEMP_DIR}"/ca-cert.pem
+  openssl genrsa -out "${CERT_DIR}"/ca-key.pem "${BITS}"
+  openssl req -x509 -new -nodes -days "${DAYS}" -key "${CERT_DIR}"/ca-key.pem -subj "/CN=Kubernetes Admin" -out "${CERT_DIR}"/ca-cert.pem
   # gen server cert
-  openssl genrsa -out "${TEMP_DIR}"/server-key.pem "${BITS}"
-  openssl req -new -key "${TEMP_DIR}"/server-key.pem -config "${TEMP_DIR}"/csr.conf -out "${TEMP_DIR}"/server.csr
-  openssl x509 -req -in "${TEMP_DIR}"/server.csr -CA "${TEMP_DIR}"/ca-cert.pem -CAkey "${TEMP_DIR}"/ca-key.pem \
-    -CAcreateserial -days "${DAYS}" -extensions v3_ext -extfile "${TEMP_DIR}"/csr.conf \
-    -out "${TEMP_DIR}"/server-cert.pem
-}
-
-if_create_cert_only() {
-  if [[ ${CREATE_CERT_ONLY} == true ]]; then
-    local CERT_DIR
-    CERT_DIR=$(pwd)/certs
-    if [[ ! -d ${CERT_DIR} ]]; then
-      create_self_signed_cert
-      mv "${TEMP_DIR}" "${CERT_DIR}"
-      echo "Generate certificate in directory: ${CERT_DIR}"
-    else
-      rmdir "${TEMP_DIR}"
-      echo "Certificate directory: ${CERT_DIR} exist, skip generate cert"
-    fi
-    exit 0
-  fi
+  openssl genrsa -out "${CERT_DIR}"/server-key.pem "${BITS}"
+  openssl req -new -key "${CERT_DIR}"/server-key.pem -config "${CERT_DIR}"/csr.conf -out "${CERT_DIR}"/server.csr
+  openssl x509 -req -in "${CERT_DIR}"/server.csr -CA "${CERT_DIR}"/ca-cert.pem -CAkey "${CERT_DIR}"/ca-key.pem \
+    -CAcreateserial -days "${DAYS}" -extensions v3_ext -extfile "${CERT_DIR}"/csr.conf \
+    -out "${CERT_DIR}"/server-cert.pem
 }
 
 main() {
   args_parse "$@"
 
-  TEMP_DIR=$(mktemp -d -p "$PWD")
+  CERT_DIR=$(mktemp -d)
 
   # just create a cert then exit 0
-  if_create_cert_only
+  if [[ ${CREATE_CERT_ONLY} == true ]]; then
+    create_self_signed_cert "$(pwd)/certs"
+    rmdir "$CERT_DIR"
+    exit 0
+  fi
 
   pre_check
+
+  cat <<EOF
+Create following k8s object in namespace: ${NAMESPACE}:
+  webhook service: ${SERVICE}
+  webhook secret: ${SECRET_NAME}
+  webhook deployment: ${INSTALL_NAME}
+  lxcfs daemonset: lxcfs-ds
+  mutating webhook configuration: ${INSTALL_NAME}
+EOF
 
   # 1 Deploy lxcfs daemonset
   kubectl create -n "${NAMESPACE}" -f lxcfs-daemonset.yaml -o yaml --dry-run=client | kubectl -n "${NAMESPACE}" apply -f -
@@ -169,8 +155,8 @@ main() {
   # 2 Create admission webhook cert
   create_self_signed_cert
   kubectl create secret generic "${SECRET_NAME}" -n "${NAMESPACE}" \
-    --from-file=tls.key="${TEMP_DIR}"/server-key.pem \
-    --from-file=tls.crt="${TEMP_DIR}"/server-cert.pem \
+    --from-file=tls.key="${CERT_DIR}"/server-key.pem \
+    --from-file=tls.crt="${CERT_DIR}"/server-cert.pem \
     --dry-run=client -o yaml |
     kubectl -n "${NAMESPACE}" apply -f -
 
@@ -178,8 +164,8 @@ main() {
   kubectl create -n "${NAMESPACE}" -f deployment.yaml -o yaml --dry-run=client | kubectl -n "${NAMESPACE}" apply -f -
   kubectl create -n "${NAMESPACE}" -f service.yaml -o yaml --dry-run=client | kubectl -n "${NAMESPACE}" apply -f -
 
-  # 4 create k8s MutatingWebhookConfiguration
-  CA_BUNDLE=$(base64 <"${TEMP_DIR}"/ca-cert.pem | tr -d '\n')
+  # 4 Create k8s MutatingWebhookConfiguration
+  CA_BUNDLE=$(base64 <"${CERT_DIR}"/ca-cert.pem | tr -d '\n')
   export CA_BUNDLE
   export NAMESPACE
   envsubst <"$PWD"/mutatingwebhook.tpl.yaml | kubectl create -o yaml --dry-run=client -f - | kubectl apply -f -
