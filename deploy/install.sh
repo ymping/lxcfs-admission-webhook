@@ -129,14 +129,14 @@ EOF
 main() {
   args_parse "$@"
 
-  CERT_DIR=$(mktemp -d)
-
   # just create a cert then exit 0
   if [[ ${CREATE_CERT_ONLY} == true ]]; then
-    create_self_signed_cert "$(pwd)/certs"
-    rmdir "$CERT_DIR"
+    CERT_DIR="${PWD}"/certs
+    create_self_signed_cert
     exit 0
   fi
+
+  CERT_DIR=$(mktemp -d)
 
   pre_check
 
