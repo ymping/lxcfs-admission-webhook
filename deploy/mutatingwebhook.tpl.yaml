@@ -1,9 +1,9 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: lxcfs-admission-webhook
+  name: ${MUTATING_WH_CONFIG}
   labels:
-    app: lxcfs-admission-webhook
+    app: ${MUTATING_WH_CONFIG}
 webhooks:
 - name: mutating.lxcfs-admission-webhook.io
   admissionReviewVersions: [ "v1" ]
@@ -12,7 +12,7 @@ webhooks:
   failurePolicy: Ignore
   clientConfig:
     service:
-      name: lxcfs-admission-webhook
+      name: ${WH_SVC}
       namespace: ${NAMESPACE}
       path: "/mutate"
     caBundle: ${CA_BUNDLE}

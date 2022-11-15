@@ -6,8 +6,8 @@ PATH=$PATH:/bin
 LXC_PATH="/var/lib/lxc"
 LXCFS_PATH="${LXC_PATH}/lxcfs"
 
-UMOUNT=false
-REMOUNT=false
+ACTION_UMOUNT="UMOUNT"
+ACTION_REMOUNT="REMOUNT"
 
 # echo script usage
 usage() {
@@ -36,25 +36,20 @@ The following one flag are required
   --remount           umount fuse.lxcfs filesystem mount in container and remount it
 
 EOF
-
-  exit 0
 }
 
 # check python3, nsenter, crictl or docker command exist on k8s cluster
 pre_check() {
-  if ! command -v python3 >/dev/null; then
-    echo python3 interpreter not found on host, exit
-    exit 1
-  fi
-
-  if ! command -v nsenter >/dev/null; then
-    echo nsenter not found on host, exit
-    exit 1
-  fi
+  for c in python3 nsenter; do
+    if ! command -v $c >/dev/null; then
+      echo $c not found on host, exit
+      exit 2
+    fi
+  done
 
   if ! command -v crictl >/dev/null && ! command -v docker >/dev/null; then
     echo container cli command crictl or docker not found on host, exit
-    exit 1
+    exit 2
   fi
 }
 
@@ -112,13 +107,13 @@ lxcfs_umount() {
 lxcfs_mount() {
   container_pid=$1
 
-  if [[ "$REMOUNT" == true ]]; then
+  if [[ ${ACTION} == "${ACTION_REMOUNT}" ]]; then
     lxcfs_remount "$container_pid"
-  elif [[ "$UMOUNT" == true ]]; then
+  elif [[ ${ACTION} == "${ACTION_UMOUNT}" ]]; then
     lxcfs_umount "$container_pid"
   else
-    echo "unknown action got, exit"
-    exit 1
+    echo "unknown action: ${ACTION}, exit"
+    exit 22
   fi
 }
 
@@ -174,29 +169,28 @@ crictl_cli() {
 main() {
   pre_check
 
-  if [[ $# -eq 1 ]]; then
-    case $1 in
-    --umount)
-      UMOUNT=true
-      ;;
-    --remount)
-      REMOUNT=true
-      # wait 3 seconds to start lxcfs
-      # for post-start hook is executed immediately after a container is created
-      sleep 3
-      ;;
-    *)
-      usage
-      ;;
-    esac
-  else
+  case $1 in
+  --umount)
+    ACTION=${ACTION_UMOUNT}
+    ;;
+  --remount)
+    ACTION=${ACTION_REMOUNT}
+    # wait 3 seconds to start lxcfs
+    # for post-start hook is executed immediately after a container is created
+    sleep 3
+    ;;
+  *)
     usage
-  fi
+    ;;
+  esac
 
   if command -v docker >/dev/null; then
     docker_cli
-  else
+  elif command -v crictl >/dev/null; then
     crictl_cli
+  else
+    echo container cli command crictl or docker not found on host, exit
+    exit 2
   fi
 }
 

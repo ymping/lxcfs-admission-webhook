@@ -16,9 +16,13 @@
 
 # JetBrains IDE
 .idea/
+.fleet/
 
 # Tmp
 deploy/tmp*
+
+# Test
+deploy/test
 
 # Certificate
 deploy/certs

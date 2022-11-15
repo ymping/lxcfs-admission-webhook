@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: lxcfs-ds
+  name: ${LXCFS_DS}
   labels:
-    app: lxcfs-ds
+    app: ${LXCFS_DS}
 spec:
   selector:
     matchLabels:
-      app: lxcfs-ds
+      app: ${LXCFS_DS}
   template:
     metadata:
       labels:
-        app: lxcfs-ds
+        app: ${LXCFS_DS}
       annotations:
         mutating.lxcfs-admission-webhook.io/enable: 'false'
     spec:

@@ -5,7 +5,7 @@ LXCFS_PATH="${LXC_PATH}/lxcfs"
 LXCFS_SCRIPT_PATH="${LXC_PATH}/script"
 
 # Cleanup
-nsenter --target 1 --mount -- fusermount -u $LXCFS_PATH 2>/dev/null || true
+nsenter --target 1 --mount -- fusermount -u $LXCFS_PATH
 [[ -d "$LXCFS_PATH" ]] && rm -rf "${LXCFS_PATH:?}"/*
 
 # Prepare
